@@ -1,0 +1,2 @@
+python -m pdb estimator_attn.py --mode train eval --epochs 10 --inpfx original
+

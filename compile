@@ -1,0 +1,2 @@
+python -m pdb ./estimator_attn.py --mode validate_only --data_dir ../data --inpfx original
+
