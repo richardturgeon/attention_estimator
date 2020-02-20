@@ -37,31 +37,16 @@ def model_fn(features, labels, mode, params):
     is_evaluate = (mode == tf.estimator.ModeKeys.EVAL)
     is_predict  = (mode == tf.estimator.ModeKeys.PREDICT)
 
-    class_weights = params['class_weights']
-    tensor_weights = tf.constant(class_weights)
-    ###### class_weights = tf.gather(tensor_weights, labels)        # GatherV2 not implemented on CS-1    
-
-########################################################## append weight to feature data    
-    class_weights = features[:,-1]
-    width = features.shape[1] - 1
-    features = features[:,:width]
-    inputs = features
+    #class_weights = features['weights']
+    inputs = features['data']
     keras_model = build_model(params, tensor=inputs)
     logits = keras_model.output
     predictions = tf.argmax(logits, 1)
-########################################################## append weight to feature data    
-
-    """
-    # label and class weights are concatenated, decouple
-    weights = labels[:,1]
-    float_labels = labels[:,0]
-    labels = float_labels                                               # CS-1 flags "Cast"
-    labels = tf.cast(float_labels, dtype=tf.int64)                      # CS-1 flags "Cast"
-    """
 
     if is_training or is_evaluate:
         global_step = get_or_create_global_step_fn()
-        loss = loss_fn(labels=labels, logits=logits, weights=class_weights)           # see loss_fn
+        #loss = loss_fn(labels=labels, logits=logits, weights=class_weights)
+        loss = loss_fn(labels=labels, logits=logits)
         hook_list = []
 
         # hooks, metrics and scalars not available on Cerebras CS-1

@@ -27,31 +27,16 @@ def input_fn(data_dir, batch_size, is_training=None, params=None):
 
         feature_map = {
             'data':  tf.io.FixedLenFeature([data_sz], dtype=tf.float32),
-#           'class_weights': tf.io.FixedLenFeature([1], dtype=tf.float32),
             'label': tf.io.FixedLenFeature([1], dtype=tf.int64)
         }
 
         record_features = tf.io.parse_single_example(raw_record, feature_map)
-        data = record_features['data']
-        label = record_features['label']
-        ### return data, label                             deferring weight handling to model_fn doesnt work  
 
-########################################################## append weight to feature data    
+        label = record_features['label']
         class_weights = params['class_weights']
         tensor_weights = tf.constant(class_weights)
-        float_weight = tf.gather(tensor_weights, label)
-        data_plus_weight = tf.concat([data, float_weight], 0)
-        return data_plus_weight, label
-########################################################## append weight to feature data    
-
-########################################################## appending weight to label requires casting, bad
-        """
-        float_label = tf.cast(label, dtype=tf.float32)  # concat reqs like dtypes
-        float_weight = tf.gather(tensor_weights, label)
-        label_plus_weight = tf.concat([float_label, float_weight], 0)
-        return data, label_plus_weight
-        """
-########################################################## appending weight to label requires casting, bad
+        record_features['weights'] = tf.gather(tensor_weights, label)
+        return record_features, label
 
     return process_record_dataset(dataset, is_training, batch_size, shuffle_buffer, _parse_record_fn, num_epochs=epochs)
 
