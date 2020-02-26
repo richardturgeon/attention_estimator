@@ -77,9 +77,9 @@ def main(args):
     with open(metadata_file, 'r') as f:
         metadata = json.load(f)
 
-    eval_steps = metadata['test_samples'] // batch_size
+    eval_steps = metadata['val_samples'] // batch_size
     train_steps = metadata['train_samples'] // batch_size * epochs
-    class_weights = metadata['class_weights'] 
+    class_weights = metadata['class_weights']
 
     params = {}
     params['epochs'] = epochs
@@ -90,7 +90,7 @@ def main(args):
     params['train_steps'] = train_steps
     params['eval_steps'] = eval_steps
     params['class_weights'] = class_weights
-    
+
     params['mode'] = args.mode
     params['learning_rate'] = args.learning_rate
     params['log_frequency'] = args.log_frequency
@@ -127,7 +127,8 @@ def main(args):
     )
 
     model = CommonEstimator(
-        use_cs=params['cerebras'],
+#       use_cs=CEREBRAS_ENV,
+        use_cs=True,
         model_fn=model_fn,
         model_dir=model_dir,
         config=config,
@@ -142,7 +143,9 @@ def main(args):
 
     # train
     if 'train' in args.mode:
-        if CEREBRAS_ENV:
+#       if CEREBRAS_ENV:
+        if True:
+            print("Slurming")
             PORT_BASE = 23111
             slurm_cluster_resolver = CSSlurmClusterResolver(port_base=PORT_BASE)
             cluster_spec = slurm_cluster_resolver.cluster_spec()
@@ -158,16 +161,17 @@ def main(args):
             os.environ['SEND_BLOCK'] = '16384'      # what do these stmts do
             os.environ['RECV_BLOCK'] = '16384'
 
-        print("\nTraining...")
-        _input_fn = lambda: input_fn(data_dir, batch_size, is_training=True, params=params)
-        model.train(input_fn=_input_fn, steps=train_steps)
+        print("\nTraining...", "on CS-1:", CEREBRAS_ENV)
+        train_input_fn = functools.partial(input_fn, data_dir, batch_size, partition='train', params=params)
+        model.train(train_input_fn, steps=train_steps)
         print("Training complete")
 
     # evaluate 
     if 'eval' in args.mode:
         print("\nEvaluating...")
-        _eval_input_fn = lambda: input_fn(data_dir, batch_size, is_training=False, params=params)
-        eval_result = model.evaluate(input_fn=_eval_input_fn)
+        #_eval_input_fn = lambda: input_fn(data_dir, batch_size, partition='val', params=params)
+        eval_input_fn = functools.partial(input_fn, data_dir, batch_size, partition='val', params=params)
+        eval_result = model.evaluate(eval_input_fn, steps=eval_steps)
 
         print("global step:%7d" % eval_result['global_step'])
         print("accuracy:   %7.2f" % round(eval_result['accuracy'] * 100.0, 2))
@@ -177,8 +181,7 @@ def main(args):
     if 'compile_only' in args.mode or 'validate_only' in args.mode:
         print("\CS-1 preprocessing...")
         validate_only = 'validate_only' in args.mode
-        #_eval_input_fn = lambda: input_fn(data_dir, batch_size, is_training=False, params=params)
-        est_input_fn = functools.partial(input_fn, data_dir, batch_size, is_training=False, params=params)
+        est_input_fn = functools.partial(input_fn, data_dir, batch_size, partition='val', params=params) # ??????
         model.compile(est_input_fn, validate_only=validate_only)
         print("\CS-1 preprocessing complete")
 

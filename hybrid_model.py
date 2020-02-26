@@ -43,7 +43,7 @@ def model_fn(features, labels, mode, params):
     logits = keras_model.output
     predictions = tf.argmax(logits, 1)
 
-    if is_training or is_evaluate:
+    if is_training or is_evaluate or is_predict:
         global_step = get_or_create_global_step_fn()
         #loss = loss_fn(labels=labels, logits=logits, weights=class_weights)
         loss = loss_fn(labels=labels, logits=logits)

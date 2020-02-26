@@ -69,35 +69,35 @@ def main(csv_path=None, outpfx=None, test=False):
     scaler = StandardScaler()
     x_df = scaler.fit_transform(x_df)
 
-    x_train, x_test, y_train, y_test = train_test_split(x_df, y_df, test_size=.20, random_state=42)
+    x_train, x_val, y_train, y_val = train_test_split(x_df, y_df, test_size=.20, random_state=42)
 
     print('x_train shape:', x_train.shape)
-    print('x_test_shape:', x_test.shape)
+    print('x_val_shape:', x_val.shape)
 
     weights = compute_class_weight('balanced', np.unique(y_train), y_train)
 
     y_train_negative, y_train_positive = np.bincount(y_train, minlength=2)  # positives are rare
-    y_test_negative, y_test_positive = np.bincount(y_test, minlength=2)     # positives are rare
+    y_val_negative, y_val_positive = np.bincount(y_val, minlength=2)     # positives are rare
 
     y_train_total = y_train_negative + y_train_positive
-    y_test_total = y_test_negative + y_test_positive
-    negative = y_train_negative + y_test_negative
-    positive = y_train_positive + y_test_positive
-    total = y_train_total + y_test_total
+    y_val_total = y_val_negative + y_val_positive
+    negative = y_train_negative + y_val_negative
+    positive = y_train_positive + y_val_positive
+    total = y_train_total + y_val_total
 
     print('Examples: \n    Total: {}\n    Positive: {}\n {:.2f}% of total'.format(
         total, positive, 100 * positive / total))
 
     train_positive_pct = round((y_train_positive * 100 / y_train_total), 2)
-    test_positive_pct = round((y_test_positive * 100 / y_test_total), 2)
+    val_positive_pct = round((y_val_positive * 100 / y_val_total), 2)
 
     metadata = dict(
         train_samples=      int(y_train_total),
         train_positives=    int(y_train_positive),
         train_positive_pct= float(train_positive_pct),
-        test_samples=       int(y_test_total),
-        test_positives=     int(y_test_positive),
-        test_positive_pct=  float(test_positive_pct),
+        val_samples=        int(y_val_total),
+        val_positives=      int(y_val_positive),
+        val_positive_pct=   float(val_positive_pct),
         class_weights=      weights.tolist()
     )
 
@@ -107,17 +107,17 @@ def main(csv_path=None, outpfx=None, test=False):
     """
     # evaluate, use of scalar label fits better with existing Estimator implementations RRT 01/29/20
     y_train = np_utils.to_categorical(y_train, NBR_CLASSES)
-    y_test = np_utils.to_categorical(y_test, NBR_CLASSES)
+    y_val = np_utils.to_categorical(y_val, NBR_CLASSES)
     """
 
-    # write train and test tfrecord datasets
+    # write train and validation tfrecord datasets
     train_name = outpfx + 'train.tfrecords'
     train_path = os.path.join(MYPATH, train_name)
-    test_name = outpfx + 'test.tfrecords'
-    test_path = os.path.join(MYPATH, test_name)
+    val_name = outpfx + 'val.tfrecords'
+    val_path = os.path.join(MYPATH, val_name)
 
     convert_to_tfr(x_train, y_train, train_path)
-    convert_to_tfr(x_test, y_test, test_path)
+    convert_to_tfr(x_val, y_val, val_path)
 
     print('TFRecords generated')
 

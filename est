@@ -1,2 +1,2 @@
-python -m pdb estimator_attn.py --mode train eval --epochs 10 --inpfx original
+python -m pdb estimator_attn.py --mode train eval --epochs 1 --data_dir ../RrtCerebras
 
