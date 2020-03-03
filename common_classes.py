@@ -45,12 +45,12 @@ def validate_arguments(mode_list, is_cerebras, params_dict):
             return False
 
     if is_cerebras and 'train' in mode_list:
-        if not params['cs_ip']:
+        if not params_dict['cs_ip']:
             tf.logging.error("--cs_ip is required when training on the CS-1")
             return False
 
-        if ':' not in params['cs_ip']:
-            params['cs_ip'] += ':9000'              # why? 
+        if ':' not in params_dict['cs_ip']:
+            params_dict['cs_ip'] += ':9000'              # why? 
 
     return True
 

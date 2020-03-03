@@ -5,7 +5,7 @@ import tensorflow as tf
 #   Estimator Input function (input_fn)
 # ------------------------------------------------------------------------------
 
-def input_fn(data_dir, batch_size, partition=None, params=None):
+def input_fn(params):
     """Return dataset iterator.
 
     Pending:
@@ -18,6 +18,10 @@ def input_fn(data_dir, batch_size, partition=None, params=None):
         partition           One of train, val, test
         params
     """
+
+    data_dir = params['data_dir']
+    batch_size = params['batch_size']
+    partition = params['partition']
 
     if partition == 'train':
         is_training = True
@@ -69,7 +73,7 @@ def process_record_dataset(dataset, is_training, batch_size, shuffle_buffer, par
             lambda raw_record: parse_record_fn(raw_record),
             batch_size=batch_size,
 #           num_parallel_batches=1,
-#           num_parallel_calls=tf.contrib.data.AUTOTUNE,        # lots of warnings re inability to improve ... 
+            num_parallel_calls=tf.contrib.data.AUTOTUNE,        # lots of warnings re inability to improve ... 
             drop_remainder=True))
 
     dataset = dataset.prefetch(buffer_size=tf.contrib.data.AUTOTUNE)

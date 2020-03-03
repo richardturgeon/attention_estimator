@@ -63,7 +63,6 @@ def model_fn(features, labels, mode, params):
             logging_hook = tf.estimator.LoggingTensorHook(
                 {"loss": loss, "accuracy": accuracy[1]},
                 every_n_iter = 1000) #### every_n_secs = 60)
-
             hook_list.append(logging_hook)
 
         if is_training:
@@ -74,8 +73,9 @@ def model_fn(features, labels, mode, params):
                     loss,
                     global_step=get_global_step_fn())
 
-            training_hook = hooks.TrainingHook(params, loss)
-            hook_list.append(training_hook)
+            if not cerebras:
+                training_hook = hooks.TrainingHook(params, loss)
+                hook_list.append(training_hook)
 
         estimator = tf.estimator.EstimatorSpec(
             mode=mode,

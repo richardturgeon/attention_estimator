@@ -1,6 +1,5 @@
 """Binlingual TF Estimator model for CPU/GPU or Cerebras CS-1 """
 
-import functools
 import glob
 import json
 import logging
@@ -38,7 +37,7 @@ NBR_CLASSES = 2
 
 def logger(prefix):
     """ """
-    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger().setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)-2s - %(levelname)-2s - %(message)s', "%Y-%m-%d %H:%M:%S")
 
     fh = logging.FileHandler(prefix + 'attn_bin_estimator.log')
@@ -117,22 +116,53 @@ def main(args):
         print("Unable to continue, correct arguments or environment")
         return
 
+    # Training may occur on the CPU or on the CS-1. CS-1 work is scheduled
+    # via Slurm and requires posting configuration parameters to the 
+    # TF-CONFIG environment variable.
+
+    # should PORT_BASE be parameterized?
+    # when should SEND_BLOCK and RECV_BLOCK workarounds be removed?
+
+    if CEREBRAS_ENV and 'train' in args.mode:
+        PORT_BASE = 23111
+        slurm_cluster_resolver = CSSlurmClusterResolver(port_base=PORT_BASE)
+        cluster_spec = slurm_cluster_resolver.cluster_spec()
+        task_type, task_id = slurm_cluster_resolver.get_task_info()
+        os.environ['TF_CONFIG'] = json.dumps({
+            'cluster': cluster_spec.as_dict(),
+            'task': {
+                'type': task_type,
+                'index': task_id
+            }
+        })
+
+        #os.environ['SEND_BLOCK'] = '16384'
+        #os.environ['RECV_BLOCK'] = '16384'
+
     # establish common Estimator and associated Config classes
 
-    # build estimator
+    partition = None
+    if 'predict' in args.mode:
+        partition = 'test'
+    if 'eval' in args.mode:
+        partition = 'eval'
+    if 'train' in args.mode:
+        partition = 'train'
+    params['partition'] = partition
+
     config = CommonRunConfig(
         cs_ip=params['cs_ip'],
-        save_checkpoints_steps=train_steps,         # is this appropriate?
-        log_step_count_steps=train_steps            # is this appropriate?
+        save_checkpoints_steps=train_steps,
+        log_step_count_steps=1000
+#       system_name="./02_fabric_connections_system14_sr.json",
     )
 
     model = CommonEstimator(
-#       use_cs=CEREBRAS_ENV,
-        use_cs=True,
+        use_cs=CEREBRAS_ENV,
         model_fn=model_fn,
         model_dir=model_dir,
         config=config,
-        params=params
+        params=params,
     )
 
     # predict
@@ -143,35 +173,16 @@ def main(args):
 
     # train
     if 'train' in args.mode:
-#       if CEREBRAS_ENV:
-        if True:
-            print("Slurming")
-            PORT_BASE = 23111
-            slurm_cluster_resolver = CSSlurmClusterResolver(port_base=PORT_BASE)
-            cluster_spec = slurm_cluster_resolver.cluster_spec()
-            task_type, task_id = slurm_cluster_resolver.get_task_info()
-            os.environ['TF_CONFIG'] = json.dumps({
-                'cluster': cluster_spec.as_dict(),
-                'task': {
-                    'type': task_type,
-                    'index': task_id
-                }
-            })
-
-            os.environ['SEND_BLOCK'] = '16384'      # what do these stmts do
-            os.environ['RECV_BLOCK'] = '16384'
-
         print("\nTraining...", "on CS-1:", CEREBRAS_ENV)
-        train_input_fn = functools.partial(input_fn, data_dir, batch_size, partition='train', params=params)
-        model.train(train_input_fn, steps=train_steps)
+        #train_input_fn = functools.partial(input_fn, data_dir, batch_size, partition='train', params=params)
+        model.train(input_fn, steps=train_steps)
         print("Training complete")
 
     # evaluate 
     if 'eval' in args.mode:
         print("\nEvaluating...")
-        #_eval_input_fn = lambda: input_fn(data_dir, batch_size, partition='val', params=params)
-        eval_input_fn = functools.partial(input_fn, data_dir, batch_size, partition='val', params=params)
-        eval_result = model.evaluate(eval_input_fn, steps=eval_steps)
+        #eval_input_fn = functools.partial(input_fn, data_dir, batch_size, partition='val', params=params)
+        eval_result = model.evaluate(input_fn, steps=eval_steps)
 
         print("global step:%7d" % eval_result['global_step'])
         print("accuracy:   %7.2f" % round(eval_result['accuracy'] * 100.0, 2))
@@ -181,8 +192,8 @@ def main(args):
     if 'compile_only' in args.mode or 'validate_only' in args.mode:
         print("\CS-1 preprocessing...")
         validate_only = 'validate_only' in args.mode
-        est_input_fn = functools.partial(input_fn, data_dir, batch_size, partition='val', params=params) # ??????
-        model.compile(est_input_fn, validate_only=validate_only)
+        #est_input_fn = functools.partial(input_fn, data_dir, batch_size, partition='val', params=params) # ??????
+        model.compile(input_fn, validate_only=validate_only)
         print("\CS-1 preprocessing complete")
 
 ##______________________________________________________________________________
